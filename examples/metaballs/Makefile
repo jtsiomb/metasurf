@@ -1,11 +1,11 @@
 src = $(wildcard src/*.c)
 obj = $(src:.c=.o)
 dep = $(obj:.o=.d)
-bin = metasurf
+bin = metaballs
 
 CC = gcc
-CFLAGS = -pedantic -Wall -g -O3
-LDFLAGS = $(libgl)
+CFLAGS = -pedantic -Wall -g -I../../src
+LDFLAGS = -L../.. -lmetasurf $(libgl)
 
 ifeq ($(shell uname -s), Darwin)
 	libgl = -framework OpenGL -framework GLUT -lGLEW
