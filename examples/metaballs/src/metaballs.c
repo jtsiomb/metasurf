@@ -3,7 +3,11 @@
 #include <math.h>
 #include <assert.h>
 
+#ifndef NO_SHADERS
 #include <GL/glew.h>
+#include "sdr.h"
+#endif
+
 #ifndef __APPLE__
 #include <GL/glut.h>
 #else
@@ -11,7 +15,6 @@
 #endif
 
 #include "cam.h"
-#include "sdr.h"
 #include "metasurf.h"
 
 #define RES		38
@@ -40,10 +43,14 @@ void sball_button(int bn, int state);
 void sball_motion(int x, int y, int z);
 int parse_args(int argc, char **argv);
 
-int stereo;
+int stereo, fullscreen;
+int orig_xsz, orig_ysz;
+
 struct metasurface *msurf;
 float threshold = 12;
+#ifndef NO_SHADERS
 unsigned int sdr;
+#endif
 int bidx = 1;
 
 int main(int argc, char **argv)
@@ -60,6 +67,13 @@ int main(int argc, char **argv)
 	glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE | (stereo ? GLUT_STEREO : 0));
 	glutCreateWindow("metasurf");
 
+	orig_xsz = glutGet(GLUT_WINDOW_WIDTH);
+	orig_ysz = glutGet(GLUT_WINDOW_HEIGHT);
+
+	if(fullscreen) {
+		glutFullScreen();
+	}
+
 	glutDisplayFunc(disp);
 	glutReshapeFunc(reshape);
 	glutKeyboardFunc(keyb);
@@ -68,7 +82,12 @@ int main(int argc, char **argv)
 	glutSpaceballButtonFunc(sball_button);
 	glutSpaceballMotionFunc(sball_motion);
 
+#ifndef NO_SHADERS
 	glewInit();
+	if(!(sdr = create_program_load("sdr/vert.glsl", "sdr/frag.glsl"))) {
+		return 1;
+	}
+#endif
 
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
@@ -94,10 +113,6 @@ int main(int argc, char **argv)
 	msurf_bounds(msurf, -1, -1, -1, 1, 1, 1);
 
 	glClearColor(0.8, 0.8, 0.8, 1.0);
-
-	if(!(sdr = create_program_load("sdr/vert.glsl", "sdr/frag.glsl"))) {
-		return 1;
-	}
 
 	glutMainLoop();
 	return 0;
@@ -143,7 +158,9 @@ void render(void)
 	glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, ks);
 	glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 60.0);
 
+#ifndef NO_SHADERS
 	bind_program(sdr);
+#endif
 
 	glBegin(GL_TRIANGLES);
 	msurf_polygonize(msurf);
@@ -201,6 +218,15 @@ void keyb(unsigned char key, int x, int y)
 	case 27:
 		exit(0);
 
+	case 'f':
+		fullscreen = !fullscreen;
+		if(fullscreen) {
+			glutFullScreen();
+		} else {
+			glutReshapeWindow(orig_xsz, orig_ysz);
+		}
+		break;
+
 	case 's':
 		stereo = !stereo;
 		glutPostRedisplay();
@@ -254,14 +280,18 @@ void motion(int x, int y)
 	prev_x = x;
 	prev_y = y;
 
-	if(bnstate[GLUT_LEFT_BUTTON]) {
-		cam_inp_rotate(dx, dy);
-		glutPostRedisplay();
+	if(glutGetModifiers()) {
+		if(bnstate[GLUT_LEFT_BUTTON]) {
+			cam_inp_rotate(dx, dy);
+		}
+		if(bnstate[GLUT_RIGHT_BUTTON]) {
+			cam_inp_zoom(dy);
+		}
+	} else {
+		mball[bidx].x += (float)dx * 0.005;
+		mball[bidx].y -= (float)dy * 0.005;
 	}
-	if(bnstate[GLUT_RIGHT_BUTTON]) {
-		cam_inp_zoom(dy);
-		glutPostRedisplay();
-	}
+	glutPostRedisplay();
 }
 
 void sball_button(int bn, int state)
@@ -277,9 +307,9 @@ void sball_button(int bn, int state)
 
 void sball_motion(int x, int y, int z)
 {
-	mball[bidx].x += (float)x / 32768.0;
-	mball[bidx].y += (float)y / 32768.0;
-	mball[bidx].z -= (float)z / 32768.0;
+	mball[bidx].x += (float)x / 16384.0;
+	mball[bidx].y += (float)y / 16384.0;
+	mball[bidx].z -= (float)z / 16384.0;
 	glutPostRedisplay();
 }
 
@@ -290,9 +320,21 @@ int parse_args(int argc, char **argv)
 	for(i=1; i<argc; i++) {
 		if(argv[i][0] == '-' && argv[i][2] == 0) {
 			switch(argv[i][1]) {
+			case 'f':
+				fullscreen = !fullscreen;
+				break;
+
 			case 's':
 				stereo = !stereo;
 				break;
+
+			case 'h':
+				printf("usage: %s [opt]\n", argv[0]);
+				printf("options:\n");
+				printf("  -f    start in fullscreen\n");
+				printf("  -s    enable stereoscopic rendering\n");
+				printf("  -h    print usage and exit\n");
+				exit(0);
 
 			default:
 				fprintf(stderr, "unrecognized option: %s\n", argv[i]);

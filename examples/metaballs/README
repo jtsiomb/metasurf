@@ -1,0 +1,10 @@
+metasurf example: metaballs
+
+- move the active metaball with the spaceball or the mouse
+- move the camera with the mouse by pressing any modifier (shift/ctrl/alt/whatever)
+- spaceball buttons or spacebar on the keyboard changes the active metaball
+- toggle fullscreen with the 'f' key
+- pass -s on the command line for stereoscopic rendering (then toggle with the 's' key)
+
+If you're on an old system which doesn't support GLSL shaders, uncomment the
+"nosdr = ..." line in the Makefile.

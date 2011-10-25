@@ -1,3 +1,21 @@
+/*
+metasurf - a library for implicit surface polygonization
+Copyright (C) 2011  John Tsiombikas <nuclear@member.fsf.org>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+#include <stdio.h>
 #include <stdlib.h>
 #include "metasurf.h"
 #include "mcubes.h"
@@ -60,7 +78,7 @@ static int msurf_init(struct metasurface *ms)
 	ms->normal = 0;
 	ms->min[0] = ms->min[1] = ms->min[2] = -1.0;
 	ms->max[0] = ms->max[1] = ms->max[2] = 1.0;
-	ms->res[0] = ms->res[1] = ms->res[2] = 32;
+	ms->res[0] = ms->res[1] = ms->res[2] = 40;
 	ms->nverts = 0;
 
 	return 0;
@@ -104,10 +122,15 @@ void msurf_threshold(struct metasurface *ms, float thres)
 }
 
 
-void msurf_polygonize(struct metasurface *ms)
+int msurf_polygonize(struct metasurface *ms)
 {
 	int i, j, k;
 	vec3 pos, delta;
+
+	if(!ms->eval || !ms->vertex) {
+		fprintf(stderr, "you need to set eval and vertex callbacks before calling msurf_polygonize\n");
+		return -1;
+	}
 
 	for(i=0; i<3; i++) {
 		delta[i] = (ms->max[i] - ms->min[i]) / (float)ms->res[i];
@@ -130,6 +153,7 @@ void msurf_polygonize(struct metasurface *ms)
 		}
 		pos[0] += delta[0];
 	}
+	return 0;
 }
 
 
@@ -248,28 +272,22 @@ static void process_tetra(struct metasurface *ms, int *idx, vec3 *pos, float *va
 	unsigned int code = mt_bitcode(val[idx[0]], val[idx[1]], val[idx[2]], val[idx[3]], ms->thres);
 
 	switch(code) {
-	/*case 1:
-	case INV(1):*/
-	case 0x0e:
-	case 0x01:
+	case 1:
+	case INV(1):
 		EDGE(0, 1);
 		EDGE(0, 2);
 		EDGE(0, 3);
 		break;
 
-	/*case 2:
-	case INV(2):*/
-	case 0x0d:
-	case 0x02:
+	case 2:
+	case INV(2):
 		EDGE(1, 0);
 		EDGE(1, 3);
 		EDGE(1, 2);
 		break;
 
-	/*case 3:
-	case INV(3):*/
-	case 0x0c:
-	case 0x03:
+	case 3:
+	case INV(3):
 		EDGE(0, 3);
 		EDGE(0, 2);
 		EDGE(1, 3);
@@ -279,19 +297,15 @@ static void process_tetra(struct metasurface *ms, int *idx, vec3 *pos, float *va
 		EDGE(0, 2);
 		break;
 
-	/*case 4:
-	case INV(4):*/
-	case 0x0b:
-	case 0x04:
+	case 4:
+	case INV(4):
 		EDGE(2, 0);
 		EDGE(2, 1);
 		EDGE(2, 3);
 		break;
 
-	/*case 5:
-	case INV(5):*/
-	case 0x0a:
-	case 0x05:
+	case 5:
+	case INV(5):
 		EDGE(0, 1);
 		EDGE(2, 3);
 		EDGE(0, 3);
@@ -301,10 +315,8 @@ static void process_tetra(struct metasurface *ms, int *idx, vec3 *pos, float *va
 		EDGE(2, 3);
 		break;
 
-	/*case 6:
-	case INV(6):*/
-	case 0x09:
-	case 0x06:
+	case 6:
+	case INV(6):
 		EDGE(0, 1);
 		EDGE(1, 3);
 		EDGE(2, 3);
@@ -314,10 +326,8 @@ static void process_tetra(struct metasurface *ms, int *idx, vec3 *pos, float *va
 		EDGE(2, 3);
 		break;
 
-	/*case 7:
-	case INV(7):*/
-	case 0x07:
-	case 0x08:
+	case 7:
+	case INV(7):
 		EDGE(3, 0);
 		EDGE(3, 2);
 		EDGE(3, 1);

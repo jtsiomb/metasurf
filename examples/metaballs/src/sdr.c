@@ -1,3 +1,5 @@
+#ifndef NO_SHADERS
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -327,3 +329,5 @@ void set_attrib_float3(int attr_loc, float x, float y, float z)
 {
 	glVertexAttrib3f(attr_loc, x, y, z);
 }
+
+#endif	/* !NO_SHADERS */

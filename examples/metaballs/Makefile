@@ -3,8 +3,11 @@ obj = $(src:.c=.o)
 dep = $(obj:.o=.d)
 bin = metaballs
 
+# uncomment the following line to disable shaders (for old systems like SGI or whatever)
+#nosdr = -DNO_SHADERS
+
 CC = gcc
-CFLAGS = -pedantic -Wall -g -I../../src
+CFLAGS = -pedantic -Wall -g -I../../src $(nosdr)
 LDFLAGS = -L../.. -lmetasurf $(libgl)
 
 ifeq ($(shell uname -s), Darwin)

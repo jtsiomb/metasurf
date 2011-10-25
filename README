@@ -10,7 +10,8 @@ just call msurf_polygonize, and the library handles everything else for you.
 
 2. Usage
 --------
-The following snippet is sufficient to draw the surface of an implict sphere.
+The following snippet is sufficient to draw the surface of an implicit unit
+sphere, centered around the origin.
 
      struct metasurface *ms;
      
@@ -27,7 +28,7 @@ The following snippet is sufficient to draw the surface of an implict sphere.
      /* evaluator */
      float eval(float x, float y, float z)
      {
-         return x * x + y * y + z * z;
+         return (x * x + y * y + z * z) - 1.0;
      }
 
 See the examples subdirectory for more examples.
