@@ -262,12 +262,14 @@ void keyb(unsigned char key, int x, int y)
 
 int bnstate[32];
 int prev_x, prev_y;
+int mod;
 
 void mouse(int bn, int state, int x, int y)
 {
 	bnstate[bn] = state == GLUT_DOWN;
 	prev_x = x;
 	prev_y = y;
+	mod = glutGetModifiers();
 }
 
 void motion(int x, int y)
@@ -279,7 +281,7 @@ void motion(int x, int y)
 	prev_x = x;
 	prev_y = y;
 
-	if(glutGetModifiers()) {
+	if(mod) {
 		if(bnstate[GLUT_LEFT_BUTTON]) {
 			cam_inp_rotate(dx, dy);
 		}

@@ -7,11 +7,12 @@ bin = metaballs
 #nosdr = -DNO_SHADERS
 
 CC = gcc
-CFLAGS = -pedantic -Wall -g -I../../src $(nosdr)
+CFLAGS = -pedantic -Wall -g -I../../src $(inc) $(nosdr)
 LDFLAGS = -L../.. -lmetasurf $(libgl)
 
 ifeq ($(shell uname -s), Darwin)
-	libgl = -framework OpenGL -framework GLUT -lGLEW
+	inc = -I/opt/local/include
+	libgl = -L/opt/local/lib -framework OpenGL -framework GLUT -lGLEW
 else
 	libgl = -lGL -lGLU -lglut -lGLEW
 endif
