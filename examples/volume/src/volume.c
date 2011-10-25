@@ -14,21 +14,10 @@
 #include <GLUT/glut.h>
 #endif
 
+#include <imago2.h>
+
 #include "cam.h"
 #include "metasurf.h"
-
-#define RES		38
-
-struct metaball {
-	float energy;
-	float x, y, z;
-} mball[] = {
-	{1.0, 0, 0, 0},
-	{0.25, 0.45, 0, 0.25},
-	{0.15, -0.3, 0.2, 0.1}
-};
-
-int num_mballs = sizeof mball / sizeof *mball;
 
 float eval(float x, float y, float z);
 void vertex(float x, float y, float z);
@@ -38,19 +27,21 @@ void reshape(int x, int y);
 void keyb(unsigned char key, int x, int y);
 void mouse(int bn, int state, int x, int y);
 void motion(int x, int y);
-void sball_button(int bn, int state);
-void sball_motion(int x, int y, int z);
 int parse_args(int argc, char **argv);
 
 int stereo, fullscreen;
 int orig_xsz, orig_ysz;
 
 struct metasurface *msurf;
-float threshold = 12;
+float threshold = 0.5;
 #ifndef NO_SHADERS
 unsigned int sdr;
 #endif
-int bidx = 1;
+
+struct img_pixmap *volume;
+int xres, yres, num_slices;
+
+int dlist, need_update = 1;
 
 int main(int argc, char **argv)
 {
@@ -64,7 +55,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE | (stereo ? GLUT_STEREO : 0));
-	glutCreateWindow("metasurf");
+	glutCreateWindow("metasurf - volume rendering");
 
 	orig_xsz = glutGet(GLUT_WINDOW_WIDTH);
 	orig_ysz = glutGet(GLUT_WINDOW_HEIGHT);
@@ -78,8 +69,6 @@ int main(int argc, char **argv)
 	glutKeyboardFunc(keyb);
 	glutMouseFunc(mouse);
 	glutMotionFunc(motion);
-	glutSpaceballButtonFunc(sball_button);
-	glutSpaceballMotionFunc(sball_motion);
 
 #ifndef NO_SHADERS
 	glewInit();
@@ -99,7 +88,7 @@ int main(int argc, char **argv)
 
 	glEnable(GL_NORMALIZE);
 
-	cam_focus_dist(2.0);
+	cam_focus_dist(3.0);
 	cam_clip(0.1, 200.0);
 	cam_rotate(0, 0);
 	cam_dolly(2);
@@ -108,10 +97,12 @@ int main(int argc, char **argv)
 	msurf_eval_func(msurf, eval);
 	msurf_vertex_func(msurf, vertex);
 	msurf_threshold(msurf, threshold);
-	msurf_resolution(msurf, RES, RES, RES);
+	msurf_resolution(msurf, xres, yres, num_slices);
 	msurf_bounds(msurf, -1, -1, -1, 1, 1, 1);
 
-	glClearColor(0.8, 0.8, 0.8, 1.0);
+	glClearColor(0.6, 0.6, 0.6, 1.0);
+
+	dlist = glGenLists(1);
 
 	glutMainLoop();
 	return 0;
@@ -119,30 +110,34 @@ int main(int argc, char **argv)
 
 float eval(float x, float y, float z)
 {
-	int i;
-	float val = 0.0f;
+	int px, py, slice;
+	struct img_pixmap *img;
 
-	for(i=0; i<num_mballs; i++) {
-		float dx = mball[i].x - x;
-		float dy = mball[i].y - y;
-		float dz = mball[i].z - z;
-		float dist_sq = dx * dx + dy * dy + dz * dz;
+	px = round((x * 0.5 + 0.5) * xres);
+	py = round((y * 0.5 + 0.5) * yres);
+	slice = round((z * 0.5 + 0.5) * num_slices);
 
-		if(dist_sq < 1e-6) {
-			val += 100.0;
-		} else {
-			val += mball[i].energy / dist_sq;
-		}
-	}
-	return val;
+	if(px < 0) px = 0;
+	if(px >= xres) px = xres - 1;
+
+	if(py < 0) py = 0;
+	if(py >= yres) py = yres - 1;
+
+	if(slice < 0) slice = 0;
+	if(slice >= num_slices) slice = num_slices - 1;
+
+	img = volume + slice;
+	return *((unsigned char*)img->pixels + py * img->width + px) / 255.0;
 }
 
 void vertex(float x, float y, float z)
 {
-	const float dt = 0.001;
-	float dfdx = eval(x - dt, y, z) - eval(x + dt, y, z);
-	float dfdy = eval(x, y - dt, z) - eval(x, y + dt, z);
-	float dfdz = eval(x, y, z - dt) - eval(x, y, z + dt);
+	float dx = 1.0 / xres;
+	float dy = 1.0 / yres;
+	float dz = 1.0 / num_slices;
+	float dfdx = eval(x - dx, y, z) - eval(x + dx, y, z);
+	float dfdy = eval(x, y - dy, z) - eval(x, y + dy, z);
+	float dfdz = eval(x, y, z - dz) - eval(x, y, z + dz);
 
 	glNormal3f(dfdx, dfdy, dfdz);
 	glVertex3f(x, y, z);
@@ -150,7 +145,7 @@ void vertex(float x, float y, float z)
 
 void render(void)
 {
-	float kd[] = {0.7, 0.28, 0.2, 1.0};
+	float kd[] = {0.87, 0.82, 0.74, 1.0};
 	float ks[] = {0.9, 0.9, 0.9, 1.0};
 
 	glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, kd);
@@ -161,9 +156,24 @@ void render(void)
 	bind_program(sdr);
 #endif
 
-	glBegin(GL_TRIANGLES);
-	msurf_polygonize(msurf);
-	glEnd();
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glRotatef(90, 1, 0, 0);
+
+	if(need_update) {
+		glNewList(dlist, GL_COMPILE);
+		glBegin(GL_TRIANGLES);
+		printf("generating mesh... ");
+		fflush(stdout);
+		msurf_polygonize(msurf);
+		glEnd();
+		glEndList();
+		need_update = 0;
+		printf("done\n");
+	}
+	glCallList(dlist);
+
+	glPopMatrix();
 
 	assert(glGetError() == GL_NO_ERROR);
 }
@@ -242,6 +252,7 @@ void keyb(unsigned char key, int x, int y)
 		msurf_threshold(msurf, threshold);
 		printf("threshold: %f\n", threshold);
 		glutPostRedisplay();
+		need_update = 1;
 		break;
 
 	case '-':
@@ -249,10 +260,7 @@ void keyb(unsigned char key, int x, int y)
 		msurf_threshold(msurf, threshold);
 		printf("threshold: %f\n", threshold);
 		glutPostRedisplay();
-		break;
-
-	case ' ':
-		bidx = (bidx + 1) % num_mballs;
+		need_update = 1;
 		break;
 
 	default:
@@ -279,42 +287,24 @@ void motion(int x, int y)
 	prev_x = x;
 	prev_y = y;
 
-	if(glutGetModifiers()) {
-		if(bnstate[GLUT_LEFT_BUTTON]) {
-			cam_inp_rotate(dx, dy);
-		}
-		if(bnstate[GLUT_RIGHT_BUTTON]) {
-			cam_inp_zoom(dy);
-		}
-	} else {
-		mball[bidx].x += (float)dx * 0.005;
-		mball[bidx].y -= (float)dy * 0.005;
+	if(bnstate[GLUT_LEFT_BUTTON]) {
+		cam_inp_rotate(dx, dy);
+	}
+	if(bnstate[GLUT_RIGHT_BUTTON]) {
+		cam_inp_zoom(dy);
 	}
 	glutPostRedisplay();
 }
 
-void sball_button(int bn, int state)
-{
-	if(state) return;
-
-	if(bn < num_mballs) {
-		bidx = bn;
-	} else {
-		bidx = (bidx + 1) % num_mballs;
-	}
-}
-
-void sball_motion(int x, int y, int z)
-{
-	mball[bidx].x += (float)x / 16384.0;
-	mball[bidx].y += (float)y / 16384.0;
-	mball[bidx].z -= (float)z / 16384.0;
-	glutPostRedisplay();
-}
+struct list_node {
+	struct img_pixmap img;
+	struct list_node *next;
+};
 
 int parse_args(int argc, char **argv)
 {
 	int i;
+	struct list_node *head = 0, *tail = 0;
 
 	for(i=1; i<argc; i++) {
 		if(argv[i][0] == '-' && argv[i][2] == 0) {
@@ -340,9 +330,62 @@ int parse_args(int argc, char **argv)
 				return -1;
 			}
 		} else {
-			fprintf(stderr, "unexpected argument: %s\n", argv[i]);
-			return -1;
+			struct list_node *slice;
+
+			if(!(slice = malloc(sizeof *slice))) {
+				fprintf(stderr, "failed to allocate volume slice: %d\n", num_slices);
+				return -1;
+			}
+			slice->next = 0;
+
+			img_init(&slice->img);
+			if(img_load(&slice->img, argv[i]) == -1) {
+				fprintf(stderr, "failed to load volume slice %d: %s\n", num_slices, argv[i]);
+				free(slice);
+				return -1;
+			}
+			img_convert(&slice->img, IMG_FMT_GREY8);
+
+			if(num_slices > 0 && (xres != slice->img.width || yres != slice->img.height)) {
+				fprintf(stderr, "error: slice %d (%s) is %dx%d, up to now we had %dx%d images\n", num_slices, argv[i],
+						slice->img.width, slice->img.height, xres, yres);
+				img_destroy(&slice->img);
+				free(slice);
+				return -1;
+			}
+			xres = slice->img.width;
+			yres = slice->img.height;
+
+			if(head) {
+				tail->next = slice;
+				tail = slice;
+			} else {
+				head = tail = slice;
+			}
+			printf("loaded volume slice %d: %s\n", num_slices++, argv[i]);
 		}
 	}
+
+	if(!head) {
+		fprintf(stderr, "you must specify a list of images for the volume data slices\n");
+		return -1;
+	}
+
+	if(!(volume = malloc(num_slices * sizeof *volume))) {
+		fprintf(stderr, "failed to allocate volume data (%d slices)\n", num_slices);
+		return -1;
+	}
+
+	for(i=0; i<num_slices; i++) {
+		void *tmp;
+
+		assert(head);
+		volume[i] = head->img;
+
+		tmp = head;
+		head = head->next;
+		free(tmp);
+	}
+
 	return 0;
 }
