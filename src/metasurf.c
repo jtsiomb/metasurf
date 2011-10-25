@@ -38,6 +38,9 @@ struct metasurface {
 	msurf_vertex_func_t vertex;
 	msurf_normal_func_t normal;
 
+	float dx, dy, dz;
+	int flip;
+
 	vec3 vbuf[3];
 	int nverts;
 };
@@ -81,7 +84,26 @@ static int msurf_init(struct metasurface *ms)
 	ms->res[0] = ms->res[1] = ms->res[2] = 40;
 	ms->nverts = 0;
 
+	ms->dx = ms->dy = ms->dz = 0.001;
+	ms->flip = 0;
+
 	return 0;
+}
+
+void msurf_inside(struct metasurface *ms, int inside)
+{
+	switch(inside) {
+	case MSURF_GREATER:
+		ms->flip = 0;
+		break;
+
+	case MSURF_LESS:
+		ms->flip = 1;
+		break;
+
+	default:
+		fprintf(stderr, "msurf_inside expects MSURF_GREATER or MSURF_LESS\n");
+	}
 }
 
 void msurf_eval_func(struct metasurface *ms, msurf_eval_func_t func)
@@ -219,6 +241,10 @@ static void process_cube(struct metasurface *ms, vec3 *pos, float *val)
 	vec3 vert[12];
 	unsigned int code = mc_bitcode(val, ms->thres);
 
+	if(ms->flip) {
+		code = ~code & 0xff;
+	}
+
 	if(mc_edge_table[code] == 0) {
 		return;
 	}
@@ -238,6 +264,21 @@ static void process_cube(struct metasurface *ms, vec3 *pos, float *val)
 	for(i=0; mc_tri_table[code][i] != -1; i+=3) {
 		for(j=0; j<3; j++) {
 			float *v = vert[mc_tri_table[code][i + j]];
+
+			if(ms->normal) {
+				float dfdx, dfdy, dfdz;
+				dfdx = ms->eval(v[0] - ms->dx, v[1], v[2]) - ms->eval(v[0] + ms->dx, v[1], v[2]);
+				dfdy = ms->eval(v[0], v[1] - ms->dy, v[2]) - ms->eval(v[0], v[1] + ms->dy, v[2]);
+				dfdz = ms->eval(v[0], v[1], v[2] - ms->dz) - ms->eval(v[0], v[1], v[2] + ms->dz);
+
+				if(ms->flip) {
+					dfdx = -dfdx;
+					dfdy = -dfdy;
+					dfdz = -dfdz;
+				}
+				ms->normal(dfdx, dfdy, dfdz);
+			}
+
 			ms->vertex(v[0], v[1], v[2]);
 		}
 	}

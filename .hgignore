@@ -5,3 +5,4 @@
 ^libmetasurf\.a$
 ^metasurf\.dylib
 ^Makefile$
+\.png$

@@ -19,6 +19,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef METASURF_H_
 #define METASURF_H_
 
+#define MSURF_GREATER	1
+#define MSURF_LESS		0
+
 struct metasurface;
 
 typedef float (*msurf_eval_func_t)(float, float, float);
@@ -31,6 +34,9 @@ extern "C" {
 
 struct metasurface *msurf_create(void);
 void msurf_free(struct metasurface *ms);
+
+/* which is inside above or below the threshold */
+void msurf_inside(struct metasurface *ms, int inside);
 
 /* set a scalar field evaluator function */
 void msurf_eval_func(struct metasurface *ms, msurf_eval_func_t func);

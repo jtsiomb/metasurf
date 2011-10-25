@@ -52,6 +52,7 @@ install:
 	cp src/$(hdr) $(PREFIX)/include/$(hdr)
 	cp $(lib_so) $(PREFIX)/lib/$(lib_so)
 	[ -n "$(soname)" ] \
+		&& rm -f $(PREFIX)/lib/$(soname) $(PREFIX)/lib/$(devlink) \
 		&& ln -s $(PREFIX)/lib/$(lib_so) $(PREFIX)/lib/$(soname) \
 		&& ln -s $(PREFIX)/lib/$(soname) $(PREFIX)/lib/$(devlink) \
 		|| true
