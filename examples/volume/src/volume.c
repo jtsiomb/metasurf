@@ -304,6 +304,7 @@ struct list_node {
 int parse_args(int argc, char **argv)
 {
 	int i;
+	char *endp;
 	struct list_node *head = 0, *tail = 0;
 
 	for(i=1; i<argc; i++) {
@@ -315,6 +316,14 @@ int parse_args(int argc, char **argv)
 
 			case 's':
 				stereo = !stereo;
+				break;
+
+			case 't':
+				threshold = strtod(argv[++i], &endp);
+				if(endp == argv[i]) {
+					fprintf(stderr, "-t must be followed by a number\n");
+					return -1;
+				}
 				break;
 
 			case 'h':
