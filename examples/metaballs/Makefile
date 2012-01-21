@@ -14,7 +14,7 @@ ifeq ($(shell uname -s), Darwin)
 	inc = -I/opt/local/include
 	libgl = -L/opt/local/lib -framework OpenGL -framework GLUT -lGLEW
 else
-	libgl = -lGL -lGLU -lglut -lGLEW
+	libgl = -L/usr/local/lib -lGL -lGLU -lglut -lGLEW
 endif
 
 $(bin): $(obj)
