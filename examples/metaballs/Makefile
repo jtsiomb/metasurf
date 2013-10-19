@@ -8,7 +8,7 @@ bin = metaballs
 
 CC = gcc
 CFLAGS = -pedantic -Wall -g -I../../src $(inc) $(nosdr)
-LDFLAGS = -L../.. -lmetasurf $(libgl)
+LDFLAGS = -L../.. -lmetasurf $(libgl) -lm
 
 ifeq ($(shell uname -s), Darwin)
 	inc = -I/opt/local/include

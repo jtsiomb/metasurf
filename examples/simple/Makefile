@@ -4,7 +4,7 @@ bin = simple
 
 CC = gcc
 CFLAGS = -pedantic -Wall -g -I../../src
-LDFLAGS = -L../.. -lmetasurf $(libgl)
+LDFLAGS = -L../.. -lmetasurf $(libgl) -lm
 
 ifeq ($(shell uname -s), Darwin)
 	libgl = -framework OpenGL -framework GLUT
