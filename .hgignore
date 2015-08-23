@@ -6,3 +6,4 @@
 ^metasurf\.dylib
 ^Makefile$
 \.png$
+\.jpg$

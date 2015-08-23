@@ -25,6 +25,7 @@ void render(void);
 void disp(void);
 void reshape(int x, int y);
 void keyb(unsigned char key, int x, int y);
+void keyb_up(unsigned char key, int x, int y);
 void mouse(int bn, int state, int x, int y);
 void motion(int x, int y);
 int parse_args(int argc, char **argv);
@@ -37,6 +38,8 @@ float threshold = 0.5;
 #ifndef NO_SHADERS
 unsigned int sdr;
 #endif
+
+float yscale = 1.0;
 
 struct img_pixmap *volume;
 int xres, yres, num_slices;
@@ -67,6 +70,7 @@ int main(int argc, char **argv)
 	glutDisplayFunc(disp);
 	glutReshapeFunc(reshape);
 	glutKeyboardFunc(keyb);
+	glutKeyboardUpFunc(keyb_up);
 	glutMouseFunc(mouse);
 	glutMotionFunc(motion);
 
@@ -158,6 +162,7 @@ void render(void)
 
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
+	glScalef(1.0, yscale, 1.0);
 	glRotatef(90, 1, 0, 0);
 
 	if(need_update) {
@@ -219,6 +224,8 @@ void reshape(int x, int y)
 	cam_aspect((float)x / (float)y);
 }
 
+int mode_scale;
+
 void keyb(unsigned char key, int x, int y)
 {
 	static int wire;
@@ -263,7 +270,20 @@ void keyb(unsigned char key, int x, int y)
 		need_update = 1;
 		break;
 
+	case 'y':
+		mode_scale = 1;
+		break;
+
 	default:
+		break;
+	}
+}
+
+void keyb_up(unsigned char key, int x, int y)
+{
+	switch(key) {
+	case 'y':
+		mode_scale = 0;
 		break;
 	}
 }
@@ -287,11 +307,15 @@ void motion(int x, int y)
 	prev_x = x;
 	prev_y = y;
 
-	if(bnstate[GLUT_LEFT_BUTTON]) {
-		cam_inp_rotate(dx, dy);
-	}
-	if(bnstate[GLUT_RIGHT_BUTTON]) {
-		cam_inp_zoom(dy);
+	if(mode_scale) {
+		yscale += dy * 0.001;
+	} else {
+		if(bnstate[GLUT_LEFT_BUTTON]) {
+			cam_inp_rotate(dx, dy);
+		}
+		if(bnstate[GLUT_RIGHT_BUTTON]) {
+			cam_inp_zoom(dy);
+		}
 	}
 	glutPostRedisplay();
 }

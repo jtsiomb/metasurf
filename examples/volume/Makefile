@@ -9,6 +9,7 @@ bin = volume
 CC = gcc
 CFLAGS = -pedantic -Wall -g -I../../src $(inc) $(nosdr)
 LDFLAGS = -L../.. -lmetasurf $(libgl) -limago -lm
+#-lgomp
 
 ifeq ($(shell uname -s), Darwin)
 	inc = -I/opt/local/include

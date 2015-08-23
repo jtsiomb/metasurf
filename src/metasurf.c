@@ -160,7 +160,6 @@ int msurf_polygonize(struct metasurface *ms)
 
 	pos[0] = ms->min[0];
 	for(i=0; i<ms->res[0] - 1; i++) {
-
 		pos[1] = ms->min[1];
 		for(j=0; j<ms->res[1] - 1; j++) {
 
@@ -279,6 +278,7 @@ static void process_cube(struct metasurface *ms, vec3 *pos, float *val)
 				ms->normal(dfdx, dfdy, dfdz);
 			}
 
+			/* TODO multithreadied polygon emmit */
 			ms->vertex(v[0], v[1], v[2]);
 		}
 	}
@@ -409,5 +409,4 @@ static void emmit(struct metasurface *ms, float v0, float v1, vec3 p0, vec3 p1, 
 		}
 	}*/
 }
-
 #endif	/* USE_MTETRA */
