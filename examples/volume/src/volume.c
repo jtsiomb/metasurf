@@ -19,8 +19,8 @@
 #include "cam.h"
 #include "metasurf.h"
 
-float eval(float x, float y, float z);
-void vertex(float x, float y, float z);
+float eval(struct metasurface *ms, float x, float y, float z);
+void vertex(struct metasurface *ms, float x, float y, float z);
 void render(void);
 void disp(void);
 void reshape(int x, int y);
@@ -100,9 +100,9 @@ int main(int argc, char **argv)
 	msurf = msurf_create();
 	msurf_eval_func(msurf, eval);
 	msurf_vertex_func(msurf, vertex);
-	msurf_threshold(msurf, threshold);
-	msurf_resolution(msurf, xres, yres, num_slices);
-	msurf_bounds(msurf, -1, -1, -1, 1, 1, 1);
+	msurf_set_threshold(msurf, threshold);
+	msurf_set_resolution(msurf, xres, yres, num_slices);
+	msurf_set_bounds(msurf, -1, -1, -1, 1, 1, 1);
 
 	glClearColor(0.6, 0.6, 0.6, 1.0);
 
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-float eval(float x, float y, float z)
+float eval(struct metasurface *ms, float x, float y, float z)
 {
 	int px, py, slice;
 	struct img_pixmap *img;
@@ -134,14 +134,14 @@ float eval(float x, float y, float z)
 	return *((unsigned char*)img->pixels + py * img->width + px) / 255.0;
 }
 
-void vertex(float x, float y, float z)
+void vertex(struct metasurface *ms, float x, float y, float z)
 {
 	float dx = 1.0 / xres;
 	float dy = 1.0 / yres;
 	float dz = 1.0 / num_slices;
-	float dfdx = eval(x - dx, y, z) - eval(x + dx, y, z);
-	float dfdy = eval(x, y - dy, z) - eval(x, y + dy, z);
-	float dfdz = eval(x, y, z - dz) - eval(x, y, z + dz);
+	float dfdx = eval(ms, x - dx, y, z) - eval(ms, x + dx, y, z);
+	float dfdy = eval(ms, x, y - dy, z) - eval(ms, x, y + dy, z);
+	float dfdz = eval(ms, x, y, z - dz) - eval(ms, x, y, z + dz);
 
 	glNormal3f(dfdx, dfdy, dfdz);
 	glVertex3f(x, y, z);
@@ -256,7 +256,7 @@ void keyb(unsigned char key, int x, int y)
 
 	case '=':
 		threshold += 0.05;
-		msurf_threshold(msurf, threshold);
+		msurf_set_threshold(msurf, threshold);
 		printf("threshold: %f\n", threshold);
 		glutPostRedisplay();
 		need_update = 1;
@@ -264,7 +264,7 @@ void keyb(unsigned char key, int x, int y)
 
 	case '-':
 		threshold -= 0.05;
-		msurf_threshold(msurf, threshold);
+		msurf_set_threshold(msurf, threshold);
 		printf("threshold: %f\n", threshold);
 		glutPostRedisplay();
 		need_update = 1;

@@ -30,8 +30,8 @@ struct metaball {
 
 int num_mballs = sizeof mball / sizeof *mball;
 
-float eval(float x, float y, float z);
-void vertex(float x, float y, float z);
+float eval(struct metasurface *ms, float x, float y, float z);
+void vertex(struct metasurface *ms, float x, float y, float z);
 void render(void);
 void disp(void);
 void reshape(int x, int y);
@@ -107,9 +107,9 @@ int main(int argc, char **argv)
 	msurf = msurf_create();
 	msurf_eval_func(msurf, eval);
 	msurf_vertex_func(msurf, vertex);
-	msurf_threshold(msurf, threshold);
-	msurf_resolution(msurf, RES, RES, RES);
-	msurf_bounds(msurf, -1, -1, -1, 1, 1, 1);
+	msurf_set_threshold(msurf, threshold);
+	msurf_set_resolution(msurf, RES, RES, RES);
+	msurf_set_bounds(msurf, -1, -1, -1, 1, 1, 1);
 
 	glClearColor(0.8, 0.8, 0.8, 1.0);
 
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-float eval(float x, float y, float z)
+float eval(struct metasurface *ms, float x, float y, float z)
 {
 	int i;
 	float val = 0.0f;
@@ -137,12 +137,12 @@ float eval(float x, float y, float z)
 	return val;
 }
 
-void vertex(float x, float y, float z)
+void vertex(struct metasurface *ms, float x, float y, float z)
 {
 	const float dt = 0.001;
-	float dfdx = eval(x - dt, y, z) - eval(x + dt, y, z);
-	float dfdy = eval(x, y - dt, z) - eval(x, y + dt, z);
-	float dfdz = eval(x, y, z - dt) - eval(x, y, z + dt);
+	float dfdx = eval(ms, x - dt, y, z) - eval(ms, x + dt, y, z);
+	float dfdy = eval(ms, x, y - dt, z) - eval(ms, x, y + dt, z);
+	float dfdz = eval(ms, x, y, z - dt) - eval(ms, x, y, z + dt);
 
 	glNormal3f(dfdx, dfdy, dfdz);
 	glVertex3f(x, y, z);
@@ -239,14 +239,14 @@ void keyb(unsigned char key, int x, int y)
 
 	case '=':
 		threshold += 0.05;
-		msurf_threshold(msurf, threshold);
+		msurf_set_threshold(msurf, threshold);
 		printf("threshold: %f\n", threshold);
 		glutPostRedisplay();
 		break;
 
 	case '-':
 		threshold -= 0.05;
-		msurf_threshold(msurf, threshold);
+		msurf_set_threshold(msurf, threshold);
 		printf("threshold: %f\n", threshold);
 		glutPostRedisplay();
 		break;

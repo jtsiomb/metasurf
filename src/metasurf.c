@@ -1,6 +1,6 @@
 /*
 metasurf - a library for implicit surface polygonization
-Copyright (C) 2011  John Tsiombikas <nuclear@member.fsf.org>
+Copyright (C) 2011-2015  John Tsiombikas <nuclear@member.fsf.org>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -37,6 +37,7 @@ struct metasurface {
 	msurf_eval_func_t eval;
 	msurf_vertex_func_t vertex;
 	msurf_normal_func_t normal;
+	void *udata;
 
 	float dx, dy, dz;
 	int flip;
@@ -79,6 +80,7 @@ static int msurf_init(struct metasurface *ms)
 	ms->eval = 0;
 	ms->vertex = 0;
 	ms->normal = 0;
+	ms->udata = 0;
 	ms->min[0] = ms->min[1] = ms->min[2] = -1.0;
 	ms->max[0] = ms->max[1] = ms->max[2] = 1.0;
 	ms->res[0] = ms->res[1] = ms->res[2] = 40;
@@ -90,7 +92,17 @@ static int msurf_init(struct metasurface *ms)
 	return 0;
 }
 
-void msurf_inside(struct metasurface *ms, int inside)
+void msurf_set_user_data(struct metasurface *ms, void *udata)
+{
+	ms->udata = udata;
+}
+
+void *msurf_get_user_data(struct metasurface *ms)
+{
+	return ms->udata;
+}
+
+void msurf_set_inside(struct metasurface *ms, int inside)
 {
 	switch(inside) {
 	case MSURF_GREATER:
@@ -104,6 +116,11 @@ void msurf_inside(struct metasurface *ms, int inside)
 	default:
 		fprintf(stderr, "msurf_inside expects MSURF_GREATER or MSURF_LESS\n");
 	}
+}
+
+int msurf_get_inside(struct metasurface *ms)
+{
+	return ms->flip ? MSURF_LESS : MSURF_GREATER;
 }
 
 void msurf_eval_func(struct metasurface *ms, msurf_eval_func_t func)
@@ -121,7 +138,7 @@ void msurf_normal_func(struct metasurface *ms, msurf_normal_func_t func)
 	ms->normal = func;
 }
 
-void msurf_bounds(struct metasurface *ms, float xmin, float ymin, float zmin, float xmax, float ymax, float zmax)
+void msurf_set_bounds(struct metasurface *ms, float xmin, float ymin, float zmin, float xmax, float ymax, float zmax)
 {
 	ms->min[0] = xmin;
 	ms->min[1] = ymin;
@@ -131,16 +148,38 @@ void msurf_bounds(struct metasurface *ms, float xmin, float ymin, float zmin, fl
 	ms->max[2] = zmax;
 }
 
-void msurf_resolution(struct metasurface *ms, int xres, int yres, int zres)
+void msurf_get_bounds(struct metasurface *ms, float *xmin, float *ymin, float *zmin, float *xmax, float *ymax, float *zmax)
+{
+	*xmin = ms->min[0];
+	*ymin = ms->min[1];
+	*zmin = ms->min[2];
+	*xmax = ms->max[0];
+	*ymax = ms->max[1];
+	*zmax = ms->max[2];
+}
+
+void msurf_set_resolution(struct metasurface *ms, int xres, int yres, int zres)
 {
 	ms->res[0] = xres;
 	ms->res[1] = yres;
 	ms->res[2] = zres;
 }
 
-void msurf_threshold(struct metasurface *ms, float thres)
+void msurf_get_resolution(struct metasurface *ms, int *xres, int *yres, int *zres)
+{
+	*xres = ms->res[0];
+	*yres = ms->res[1];
+	*zres = ms->res[2];
+}
+
+void msurf_set_threshold(struct metasurface *ms, float thres)
 {
 	ms->thres = thres;
+}
+
+float msurf_get_threshold(struct metasurface *ms)
+{
+	return ms->thres;
 }
 
 
@@ -211,7 +250,7 @@ static void process_cell(struct metasurface *ms, vec3 pos, vec3 sz)
 		p[i][1] = pos[1] + sz[1] * offs[i][1];
 		p[i][2] = pos[2] + sz[2] * offs[i][0];
 
-		val[i] = ms->eval(p[i][0], p[i][1], p[i][2]);
+		val[i] = ms->eval(ms, p[i][0], p[i][1], p[i][2]);
 	}
 
 #ifdef USE_MTETRA
@@ -266,20 +305,20 @@ static void process_cube(struct metasurface *ms, vec3 *pos, float *val)
 
 			if(ms->normal) {
 				float dfdx, dfdy, dfdz;
-				dfdx = ms->eval(v[0] - ms->dx, v[1], v[2]) - ms->eval(v[0] + ms->dx, v[1], v[2]);
-				dfdy = ms->eval(v[0], v[1] - ms->dy, v[2]) - ms->eval(v[0], v[1] + ms->dy, v[2]);
-				dfdz = ms->eval(v[0], v[1], v[2] - ms->dz) - ms->eval(v[0], v[1], v[2] + ms->dz);
+				dfdx = ms->eval(ms, v[0] - ms->dx, v[1], v[2]) - ms->eval(ms, v[0] + ms->dx, v[1], v[2]);
+				dfdy = ms->eval(ms, v[0], v[1] - ms->dy, v[2]) - ms->eval(ms, v[0], v[1] + ms->dy, v[2]);
+				dfdz = ms->eval(ms, v[0], v[1], v[2] - ms->dz) - ms->eval(ms, v[0], v[1], v[2] + ms->dz);
 
 				if(ms->flip) {
 					dfdx = -dfdx;
 					dfdy = -dfdy;
 					dfdz = -dfdz;
 				}
-				ms->normal(dfdx, dfdy, dfdz);
+				ms->normal(ms, dfdx, dfdy, dfdz);
 			}
 
 			/* TODO multithreadied polygon emmit */
-			ms->vertex(v[0], v[1], v[2]);
+			ms->vertex(ms, v[0], v[1], v[2]);
 		}
 	}
 }
@@ -394,7 +433,7 @@ static void emmit(struct metasurface *ms, float v0, float v1, vec3 p0, vec3 p1, 
 	for(i=0; i<3; i++) {
 		p[i] = p0[i] + (p1[i] - p0[i]) * t;
 	}
-	ms->vertex(p[0], p[1], p[2]);
+	ms->vertex(ms, p[0], p[1], p[2]);
 
 	/*for(i=0; i<3; i++) {
 		ms->vbuf[ms->nverts][i] = p0[i] + (p1[i] - p0[i]) * t;
@@ -405,7 +444,7 @@ static void emmit(struct metasurface *ms, float v0, float v1, vec3 p0, vec3 p1, 
 
 		for(i=0; i<3; i++) {
 			int idx = rev ? (2 - i) : i;
-			ms->vertex(ms->vbuf[idx][0], ms->vbuf[idx][1], ms->vbuf[idx][2]);
+			ms->vertex(ms, ms->vbuf[idx][0], ms->vbuf[idx][1], ms->vbuf[idx][2]);
 		}
 	}*/
 }

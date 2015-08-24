@@ -20,7 +20,7 @@ sphere, centered around the origin.
      /* initialization */
      ms = msurf_create();
      msurf_eval_func(ms, eval);
-     msurf_vertex_func(ms, glVertex3f);
+     msurf_vertex_func(ms, vertex);
      
      /* drawing */
      glBegin(GL_TRIANGLES);
@@ -28,9 +28,15 @@ sphere, centered around the origin.
      glEnd();
      
      /* evaluator */
-     float eval(float x, float y, float z)
+     float eval(struct metasurface *ms, float x, float y, float z)
      {
          return (x * x + y * y + z * z) - 1.0;
+     }
+
+     /* vertex generation callback */
+     float vertex(struct metasurface *ms, float x, float y, float z)
+     {
+         glVertex3f(x, y, z);
      }
 
 See the examples subdirectory for more examples.
