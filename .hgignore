@@ -1,9 +1,0 @@
-\.o$
-\.d$
-\.swp$
-^libmetasurf\.so
-^libmetasurf\.a$
-^metasurf\.dylib
-^Makefile$
-\.png$
-\.jpg$

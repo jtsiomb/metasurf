@@ -1,0 +1,7 @@
+*.o
+*.swp
+*.d
+lib*.so*
+lib*.a
+Makefile
+examples/metaballs/metaballs

@@ -15,7 +15,7 @@
 #endif
 
 #include "cam.h"
-#include "metasurf.h"
+#include "metasurf2.h"
 
 #define RES		38
 
@@ -105,11 +105,10 @@ int main(int argc, char **argv)
 	cam_dolly(2);
 
 	msurf = msurf_create();
-	msurf_eval_func(msurf, eval);
-	msurf_vertex_func(msurf, vertex);
+	msurf_set_inside(msurf, MSURF_GREATER);
 	msurf_set_threshold(msurf, threshold);
-	msurf_set_resolution(msurf, RES, RES, RES);
 	msurf_set_bounds(msurf, -1, -1, -1, 1, 1, 1);
+	msurf_enable(msurf, MSURF_NORMALIZE);
 
 	glClearColor(0.8, 0.8, 0.8, 1.0);
 
@@ -117,35 +116,49 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-float eval(struct metasurface *ms, float x, float y, float z)
+void update(void)
 {
-	int i;
-	float val = 0.0f;
+	int i, j, k, n, xres, yres, zres;
+	float xmin, xmax, ymin, ymax, zmin, zmax, xstep, ystep, zstep;
 
-	for(i=0; i<num_mballs; i++) {
-		float dx = mball[i].x - x;
-		float dy = mball[i].y - y;
-		float dz = mball[i].z - z;
-		float dist_sq = dx * dx + dy * dy + dz * dz;
+	if(!msurf_voxels(msurf)) return;
 
-		if(dist_sq < 1e-6) {
-			val += 100.0;
-		} else {
-			val += mball[i].energy / dist_sq;
+	msurf_get_bounds(msurf, &xmin, &ymin, &zmin, &xmax, &ymax, &zmax);
+	msurf_get_resolution(msurf, &xres, &yres, &zres);
+
+	xstep = (xmax - xmin) / xres;
+	ystep = (ymax - ymin) / yres;
+	zstep = (zmax - zmin) / zres;
+
+	for(i=0; i<zres; i++) {
+		float z = zmin + i * zstep;
+		float *voxptr = msurf_slice(msurf, i);
+
+		for(j=0; j<yres; j++) {
+			float y = ymin + j * ystep;
+
+			for(k=0; k<xres; k++) {
+				float x = xmin + k * xstep;
+				float sum = 0.0f;
+
+				for(n=0; n<num_mballs; n++) {
+					float dx = mball[n].x - x;
+					float dy = mball[n].y - y;
+					float dz = mball[n].z - z;
+					float dist_sq = dx * dx + dy * dy + dz * dz;
+
+					if(dist_sq < 1e-6) {
+						sum += 100.0;
+					} else {
+						sum += mball[n].energy / dist_sq;
+					}
+				}
+				*voxptr++ = sum;
+			}
 		}
 	}
-	return val;
-}
 
-void vertex(struct metasurface *ms, float x, float y, float z)
-{
-	const float dt = 0.001;
-	float dfdx = eval(ms, x - dt, y, z) - eval(ms, x + dt, y, z);
-	float dfdy = eval(ms, x, y - dt, z) - eval(ms, x, y + dt, z);
-	float dfdz = eval(ms, x, y, z - dt) - eval(ms, x, y, z + dt);
-
-	glNormal3f(dfdx, dfdy, dfdz);
-	glVertex3f(x, y, z);
+	msurf_polygonize(msurf);
 }
 
 void render(void)
@@ -161,15 +174,23 @@ void render(void)
 	bind_program(sdr);
 #endif
 
-	glBegin(GL_TRIANGLES);
-	msurf_polygonize(msurf);
-	glEnd();
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glEnableClientState(GL_NORMAL_ARRAY);
+	glVertexPointer(3, GL_FLOAT, 0, msurf_vertices(msurf));
+	glNormalPointer(GL_FLOAT, 0, msurf_normals(msurf));
+
+	glDrawArrays(GL_TRIANGLES, 0, msurf_vertex_count(msurf));
+
+	glDisableClientState(GL_VERTEX_ARRAY);
+	glDisableClientState(GL_NORMAL_ARRAY);
 
 	assert(glGetError() == GL_NO_ERROR);
 }
 
 void disp(void)
 {
+	update();
+
 	if(stereo) {
 		glDrawBuffer(GL_BACK_LEFT);
 	}
