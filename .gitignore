@@ -1,0 +1,10 @@
+*.o
+*.d
+*.swp
+*.a
+*.so.*
+*.so
+Makefile
+examples/metaballs/metaballs
+examples/simple/simple
+examples/volume/volume
